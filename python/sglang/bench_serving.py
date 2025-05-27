@@ -1896,7 +1896,7 @@ if __name__ == "__main__":
     group.add_argument(
         "--gsp-system-prompt-partial-randomize-start-max",
         type=float,
-        default=0.1,
+        default=1.0,
         help="Specify the max starting point for system prompt randomization in generated-shared-prefix dataset",
     )
     args = parser.parse_args()
