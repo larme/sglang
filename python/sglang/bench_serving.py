@@ -1888,13 +1888,13 @@ if __name__ == "__main__":
         help="Enable partially randomized system prompt in generated-shared-prefix dataset",
     )
     group.add_argument(
-        "--gsp-system-prompt-partial-randomized-start-min",
+        "--gsp-system-prompt-partial-randomize-start-min",
         type=float,
         default=0.5,
         help="Specify the minimal starting point for system prompt randomization in generated-shared-prefix dataset",
     )
     group.add_argument(
-        "--gsp-system-prompt-partial-randomized-start-max",
+        "--gsp-system-prompt-partial-randomize-start-max",
         type=float,
         default=0.5,
         help="Specify the max starting point for system prompt randomization in generated-shared-prefix dataset",
