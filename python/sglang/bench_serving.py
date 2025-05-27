@@ -524,6 +524,9 @@ def get_dataset(args, tokenizer):
             system_prompt_len=args.gsp_system_prompt_len,
             question_len=args.gsp_question_len,
             output_len=args.gsp_output_len,
+            system_prompt_partial_randomize=args.enable_system_prompt_partial_randomize,
+            system_prompt_partial_randomize_start_min=args.system_prompt_partial_randomize_start_min,
+            system_prompt_partial_randomize_start_max=args.system_prompt_partial_randomize_start_max,
             tokenizer=tokenizer,
             args=args,
         )
@@ -979,6 +982,9 @@ def sample_generated_shared_prefix_requests(
     system_prompt_len: int,
     question_len: int,
     output_len: int,
+    system_prompt_partial_randomize: bool,
+    system_prompt_partial_randomize_start_min: float,
+    system_prompt_partial_randomize_start_max: float,
     tokenizer: PreTrainedTokenizerBase,
     args: argparse.Namespace,
 ) -> List[DatasetRow]:
@@ -986,7 +992,7 @@ def sample_generated_shared_prefix_requests(
     cache_path = get_gen_prefix_cache_path(args, tokenizer)
 
     # Try to load from cache first
-    if cache_path.exists():
+    if cache_path.exists() and not system_prompt_partial_randomize:
         print(f"\nLoading cached generated input data from {cache_path}")
         with open(cache_path, "rb") as f:
             return pickle.load(f)
@@ -1012,11 +1018,25 @@ def sample_generated_shared_prefix_requests(
 
     for group_idx in tqdm(range(num_groups), desc="Generating system prompt"):
         system_prompt = system_prompts[group_idx]
+
         for prompt_idx in tqdm(
             range(prompts_per_group), desc="Generating questions", leave=False
         ):
+            individual_system_prompt = system_prompt
+            if system_prompt_partial_randomize:
+                randomize_start_factor = random.uniform(
+                    system_prompt_partial_randomize_start_min,
+                    system_prompt_partial_randomize_start_max,
+                )
+                randomize_start = round(randomize_start_factor * system_prompt_len)
+                randomize_len = system_prompt_len - randomize_start
+                random_part = gen_prompt(tokenizer, randomize_len)
+                system_prefix = tokenizer.decode(tokenizer.encode(system_prompt)[:randomize_start])
+                system_prefix = system_prefix.replace(tokenizer.bos_token, "")
+                individual_system_prompt = system_prefix + random_part
+
             question = questions[group_idx * prompts_per_group + prompt_idx]
-            full_prompt = f"{system_prompt}\n\n{question}"
+            full_prompt = f"{individual_system_prompt}\n\n{question}"
             prompt_len = len(tokenizer.encode(full_prompt))
 
             input_requests.append(
@@ -1861,6 +1881,23 @@ if __name__ == "__main__":
         type=int,
         default=256,
         help="Target length in tokens for outputs in generated-shared-prefix dataset",
+    )
+    group.add_argument(
+        "--gsp-enable-system-prompt-partial-randomize",
+        action="store_true",
+        help="Enable partially randomized system prompt in generated-shared-prefix dataset",
+    )
+    group.add_argument(
+        "--gsp-system-prompt-partial-randomized-start-min",
+        type=float,
+        default=0.5,
+        help="Specify the minimal starting point for system prompt randomization in generated-shared-prefix dataset",
+    )
+    group.add_argument(
+        "--gsp-system-prompt-partial-randomized-start-max",
+        type=float,
+        default=0.5,
+        help="Specify the max starting point for system prompt randomization in generated-shared-prefix dataset",
     )
     args = parser.parse_args()
     run_benchmark(args)
