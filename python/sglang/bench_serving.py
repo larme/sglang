@@ -524,9 +524,9 @@ def get_dataset(args, tokenizer):
             system_prompt_len=args.gsp_system_prompt_len,
             question_len=args.gsp_question_len,
             output_len=args.gsp_output_len,
-            system_prompt_partial_randomize=args.enable_system_prompt_partial_randomize,
-            system_prompt_partial_randomize_start_min=args.system_prompt_partial_randomize_start_min,
-            system_prompt_partial_randomize_start_max=args.system_prompt_partial_randomize_start_max,
+            system_prompt_partial_randomize=args.gsp_enable_system_prompt_partial_randomize,
+            system_prompt_partial_randomize_start_min=args.gsp_system_prompt_partial_randomize_start_min,
+            system_prompt_partial_randomize_start_max=args.gsp_system_prompt_partial_randomize_start_max,
             tokenizer=tokenizer,
             args=args,
         )
