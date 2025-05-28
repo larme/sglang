@@ -24,6 +24,7 @@ import warnings
 from argparse import ArgumentParser
 from dataclasses import dataclass, field
 from datetime import datetime
+from functools import lru_cache
 from json import JSONDecodeError
 from pathlib import Path
 from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple, Union
@@ -956,9 +957,14 @@ def sample_random_requests(
     return input_requests
 
 
+@lru_cache
+def get_tokenizer_vocab(tokenizer):
+    return list(tokenizer.get_vocab().values())
+
+
 def gen_prompt(tokenizer, token_num):
     """Generate a random prompt of specified token length using tokenizer vocabulary."""
-    all_available_tokens = list(tokenizer.get_vocab().values())
+    all_available_tokens = get_tokenizer_vocab(tokenizer)
     selected_tokens = random.choices(all_available_tokens, k=token_num)
     return tokenizer.decode(selected_tokens)
 
