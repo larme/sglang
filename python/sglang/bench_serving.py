@@ -40,7 +40,6 @@ from transformers import (
     PreTrainedTokenizerFast,
 )
 
-AIOHTTP_TIMEOUT = aiohttp.ClientTimeout(total=6 * 60 * 60)
 ASSISTANT_SUFFIX = "Assistant:"
 
 global args
@@ -50,6 +49,19 @@ global args
 def _get_bool_env_var(name: str, default: str = "false") -> bool:
     value = os.getenv(name, default)
     return value.lower() in ("true", "1")
+
+
+def _create_bench_client_session():
+    # When the pressure is big, the read buffer could be full before aio thread read
+    # the content. We increase the read_bufsize from 64K to 10M.
+    # Define constants for timeout and buffer size for clarity and maintainability
+    BENCH_AIOHTTP_TIMEOUT_SECONDS = 6 * 60 * 60  # 6 hours
+    BENCH_AIOHTTP_READ_BUFSIZE_BYTES = 10 * 1024**2  # 10 MB
+
+    aiohttp_timeout = aiohttp.ClientTimeout(total=BENCH_AIOHTTP_TIMEOUT_SECONDS)
+    return aiohttp.ClientSession(
+        timeout=aiohttp_timeout, read_bufsize=BENCH_AIOHTTP_READ_BUFSIZE_BYTES
+    )
 
 
 @dataclass
@@ -107,7 +119,7 @@ async def async_request_trt_llm(
     api_url = request_func_input.api_url
     assert api_url.endswith("generate_stream")
 
-    async with aiohttp.ClientSession(timeout=AIOHTTP_TIMEOUT) as session:
+    async with _create_bench_client_session() as session:
         payload = {
             "accumulate_tokens": True,
             "text_input": request_func_input.prompt,
@@ -180,7 +192,7 @@ async def async_request_openai_completions(
 
     prompt = request_func_input.prompt
 
-    async with aiohttp.ClientSession(timeout=AIOHTTP_TIMEOUT) as session:
+    async with _create_bench_client_session() as session:
         payload = {
             "model": request_func_input.model,
             "prompt": prompt,
@@ -262,7 +274,7 @@ async def async_request_truss(
 
     prompt = request_func_input.prompt
 
-    async with aiohttp.ClientSession(timeout=AIOHTTP_TIMEOUT) as session:
+    async with _create_bench_client_session() as session:
         payload = {
             "model": request_func_input.model,
             "prompt": prompt,
@@ -339,7 +351,7 @@ async def async_request_sglang_generate(
     api_url = request_func_input.api_url
     prompt = request_func_input.prompt
 
-    async with aiohttp.ClientSession(timeout=AIOHTTP_TIMEOUT) as session:
+    async with _create_bench_client_session() as session:
         payload = {
             ("text" if isinstance(prompt, str) else "input_ids"): prompt,
             "sampling_params": {
@@ -438,7 +450,7 @@ async def async_request_gserver(
 
 
 async def async_request_profile(api_url: str) -> RequestFuncOutput:
-    async with aiohttp.ClientSession(timeout=AIOHTTP_TIMEOUT) as session:
+    async with _create_bench_client_session() as session:
         output = RequestFuncOutput()
         try:
             async with session.post(url=api_url) as response:
@@ -1226,7 +1238,7 @@ async def benchmark(
     if "<image>" in test_prompt:
         import re
 
-        image_match = re.search(r"<image>(.*?)</image>(.*)", test_prompt)
+        image_match = re.search(r"<image>(.*?)</image>(.*)", test_prompt, re.DOTALL)
         image_data = image_match.group(1) if image_match else None
         test_prompt = image_match.group(2) if image_match else test_prompt
     else:
@@ -1299,7 +1311,7 @@ async def benchmark(
         if "<image>" in prompt:
             import re
 
-            image_match = re.search(r"<image>(.*?)</image>(.*)", prompt)
+            image_match = re.search(r"<image>(.*?)</image>(.*)", prompt, re.DOTALL)
             image_data = image_match.group(1) if image_match else None
             prompt = image_match.group(2) if image_match else prompt
         else:
